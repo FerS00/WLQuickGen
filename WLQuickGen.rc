@@ -1,0 +1,6 @@
+#include "resource.h"
+#include <windows.h>
+
+IDI_APPICON ICON "WLQuickGen.ico"
+
+1 RT_MANIFEST "WLQuickGen.manifest"

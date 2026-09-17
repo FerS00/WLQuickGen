@@ -1,0 +1,31 @@
+# ---------------------------------------------------------------------------
+# NEVER COMMIT WINLICENSE MATERIAL
+# These files carry the per-product generation secrets. Publishing any of them
+# would let anyone mint licenses for your product.
+# ---------------------------------------------------------------------------
+*.dll
+*.gns
+*.abs
+*.lib
+WLQuickGen.ini
+*.dat
+*.dat.previous
+*.reg
+*.txt
+!requirements.txt
+
+# Build output
+*.exe
+*.obj
+*.res
+*.pdb
+*.ilk
+*.exp
+build-*.obj
+
+# Editor / OS
+.vs/
+.vscode/
+*.user
+Thumbs.db
+desktop.ini
