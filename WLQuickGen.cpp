@@ -21,6 +21,7 @@
 //   "No expiry"      control_id 1006  (class Button, checkbox)
 //   GENERATE button  control_id 1011  (class Button)
 //   Status text      control_id 1012  (class Static) -> starts with "OK:" or "ERROR:"
+//   Signature        control_id 1014  (class Static)
 // No modal dialogs are shown; results are reported in the status text only.
 
 #include <windows.h>
@@ -75,6 +76,7 @@ constexpr int IDC_MONTH    = 1008;
 constexpr int IDC_YEAR     = 1009;
 constexpr int IDC_GENERATE = 1011;
 constexpr int IDC_STATUS   = 1012;
+constexpr int IDC_SIGNATURE = 1014;
 
 // ---------------------------------------------------------------------------
 // Theme.
@@ -86,11 +88,13 @@ constexpr COLORREF kAccent     = RGB(220, 30, 30);
 constexpr COLORREF kAccentDark = RGB(150, 18, 18);
 constexpr COLORREF kMuted      = RGB(150, 150, 150);
 constexpr COLORREF kOk         = RGB(80, 220, 120);
+constexpr COLORREF kSignature  = RGB(120, 120, 120);
 
 HBRUSH g_backgroundBrush{};
 HBRUSH g_fieldBrush{};
 HFONT  g_font{};
 HFONT  g_buttonFont{};
+HFONT  g_smallFont{};
 
 HWND g_hwid{};
 HWND g_noExpire{};
@@ -98,6 +102,7 @@ HWND g_day{};
 HWND g_month{};
 HWND g_year{};
 HWND g_status{};
+HWND g_signature{};
 
 std::wstring g_dllPath;       // detected generator DLL
 std::wstring g_dataDirectory; // folder holding GeneratorSeed.gns / GeneratorDatabase.abs
@@ -618,6 +623,13 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                                    GetModuleHandleW(nullptr), nullptr);
         SendMessageW(g_status, WM_SETFONT, reinterpret_cast<WPARAM>(g_font), TRUE);
 
+        g_signature = CreateWindowExW(0, L"STATIC", L"by FerS0",
+                                      WS_CHILD | WS_VISIBLE | SS_RIGHT,
+                                      340, 198, 180, 16, window,
+                                      reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_SIGNATURE)),
+                                      GetModuleHandleW(nullptr), nullptr);
+        SendMessageW(g_signature, WM_SETFONT, reinterpret_cast<WPARAM>(g_smallFont), TRUE);
+
         DetectSdk();
         LoadSettings();
         UpdateDateFields();
@@ -639,6 +651,8 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             else
                 SetTextColor(dc, kMuted);
         }
+        else if (control == g_signature)
+            SetTextColor(dc, kSignature);
         else if (control == g_noExpire)
             SetTextColor(dc, kText);
         else
@@ -699,6 +713,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     g_buttonFont = CreateFontW(-15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                                DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    g_smallFont = CreateFontW(-11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                              DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 
     HICON icon = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
                                                0, 0, LR_DEFAULTSIZE | LR_SHARED));
@@ -718,7 +735,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     windowClass.hIconSm = iconSmall;
     RegisterClassExW(&windowClass);
 
-    RECT desired{0, 0, 540, 208};
+    RECT desired{0, 0, 540, 220};
     AdjustWindowRect(&desired, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
     HWND window = CreateWindowExW(0, className, L"WLQuickGen",
                                   WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
@@ -744,5 +761,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     DeleteObject(g_fieldBrush);
     DeleteObject(g_font);
     DeleteObject(g_buttonFont);
+    DeleteObject(g_smallFont);
     return static_cast<int>(message.wParam);
 }
