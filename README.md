@@ -48,7 +48,7 @@ product: it only uses the generator DLL that WinLicense already produced for it.
 
 1. Download the build matching your generator DLL's architecture (usually x86)
    from the [releases](https://github.com/FerS00/WLQuickGen/releases) and copy it
-   into the product folder, e.g. `...\Specific Generators\DPP\`.
+   into the product folder, e.g. `...\Specific Generators\MyProduct\`.
 2. Run it once — it creates `WLQuickGen.ini` next to itself.
 3. Set the license file name in that ini (see below).
 4. Paste the HWID, choose the expiration, press **Generate** (or Enter).
@@ -127,7 +127,7 @@ Window class `WLQuickGenWindow`, title `WLQuickGen`.
 from pywinauto.application import Application
 import time
 
-app = Application(backend="win32").start(r"...\DPP\WLQuickGen-x86.exe")
+app = Application(backend="win32").start(r"...\MyProduct\WLQuickGen-x86.exe")
 dlg = app.window(class_name="WLQuickGenWindow")
 dlg.wait("ready", timeout=10)
 
@@ -206,6 +206,58 @@ Check `git status` before your first push.
   different bytes. Compare sizes, not bytes.
 - Binaries are not Authenticode-signed.
 
+## Technologies
+
+- C++17, Win32 API (no MFC/ATL), GDI for the custom-drawn UI.
+- Windows resources (`.rc`, manifest with Common Controls 6 and DPI awareness).
+- CMake and `build.bat` (MSVC); MinGW cross-compilation described in
+  [docs/COMPILACION.md](docs/COMPILACION.md).
+- GitHub Actions (`windows-2022`) for x86/x64 builds and releases.
+- Python + pywinauto only for the optional automation example.
+
+## Project structure
+
+```text
+src/                 Application source (SDK detection, ini, generation, UI, i18n)
+docs/                Build guide, user manual, logic diagrams and screenshots
+examples/            pywinauto automation example
+.github/workflows/   Build and release pipeline
+WLQuickGen.rc        Icon, manifest and version resource
+CMakeLists.txt       CMake build
+build.bat            Direct MSVC build for x86 and x64
+```
+
+## Status
+
+- **Implemented:** FileKey generation through the custom and standard SDK exports,
+  SDK auto-detection, architecture check, EN/ES/PT UI, atomic writes, automation
+  control IDs, CI build and release workflow.
+- **Tested:** x86/x64 builds and PE architecture check run in CI. License
+  generation requires a real WinLicense generator DLL and is verified manually;
+  there are no automated tests in this repository.
+- **Out of scope:** TextKey, Registry, SmartKey and Dynamic SmartKey licenses.
+
+## Third-party software
+
+WLQuickGen does **not** include the WinLicense SDK or any Oreans binary. It loads
+the generator DLL that already exists in the user's WinLicense installation and
+declares the SDK function signatures and `sLicenseFeatures` structure needed to
+call it. WinLicense is a product and trademark of Oreans Technologies. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## License
 
-Not chosen yet — add one before publishing.
+Source code is **source-available** under the
+[PolyForm Noncommercial License 1.0.0](LICENSE). This is not an OSI-approved
+open source license.
+
+> Source code is available under the PolyForm Noncommercial License 1.0.0.
+> Commercial use requires a separate license from the copyright holder.
+
+See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for commercial use.
+
+Required Notice: Copyright (c) 2026 FerS00 (https://github.com/FerS00)
+
+## Author
+
+[FerS00](https://github.com/FerS00)
