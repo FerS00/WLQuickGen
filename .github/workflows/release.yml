@@ -55,7 +55,7 @@ jobs:
           $name = "WLQuickGen-$version-windows-${{ matrix.arch }}"
           New-Item -ItemType Directory -Path "dist/$name" | Out-Null
           Copy-Item "build/bin/Release/WLQuickGen-${{ matrix.arch }}.exe" "dist/$name/"
-          Copy-Item README.md, examples/automate.py "dist/$name/"
+          Copy-Item README.md, LICENSE, examples/automate.py "dist/$name/"
           Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
           (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash + "  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
 
