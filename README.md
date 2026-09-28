@@ -1,75 +1,40 @@
 # WLQuickGen
+**Portable FileKey license generator for WinLicense-protected products**  
+*Single-screen Win32 front end over the generator DLL that WinLicense already builds per product — no re-protection, no installer, automation-ready.*
 
-A small, portable license generator for products protected with
-[WinLicense](https://www.oreans.com/WinLicense.php).
-
-Drop a single `.exe` into the `Specific Generators\<Product>\` folder that
-WinLicense creates, paste the target machine's HWID, press **Generate**, and the
-license file is written next to the executable.
-
-It is a leaner replacement for the `WLGen_<Product>.exe` generator that
-WinLicense ships: same official SDK exports, one screen, and built for UI
-automation.
-
-Current version: **1.1.0** — see the [changelog](CHANGELOG.md).
+![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square&logo=cplusplus&logoColor=white)
+![Win32](https://img.shields.io/badge/Win32-API%20%2B%20GDI-0078D6?style=flat-square&logo=windows&logoColor=white)
+![Arch](https://img.shields.io/badge/arch-x86%20%7C%20x64-informational?style=flat-square)
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-lightgrey?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.1.0-blue?style=flat-square)
 
 ![WLQuickGen](docs/screenshot.png)
 
-## Why
+---
 
-When you already have many protected products, re-protecting each one just to
-change how licenses are issued is expensive. WLQuickGen needs nothing from the
-product: it only uses the generator DLL that WinLicense already produced for it.
+### Overview
+> Dropped into `Specific Generators\<Product>\`, the executable locates the product's generator DLL, takes a HWID and an expiration, and writes the license file next to itself. It replaces the stock `WLGen_<Product>.exe` using the same official SDK exports, adds pre-flight validation, and exposes stable control IDs and prefix-coded status text so it can be driven by `pywinauto`.
 
-## Features
+---
 
-- **Portable** — one executable per generator folder, no installation, static
-  runtime (no VC++ redistributable).
-- **Auto-detects the SDK** — finds `CustomWinlicenseSDK.dll` (custom generator,
-  no license hash needed) or `WinLicenseSDK.dll` (standard generator), and warns
-  up front when its architecture does not match the executable.
-- **Dark card-based UI** — same design language as GET_HWID: rounded cards,
-  hover-aware buttons, SDK badge, colored status line, dark title bar on
-  Windows 10/11, live expiration summary ("Expires in 459 days").
-- **Multi-language** — English, Spanish and Portuguese. Follows the Windows
-  display language and can be switched live with the `EN`/`ES`/`PT` button
-  (the choice is remembered in `WLQuickGen.ini`).
-- **Automation friendly** — stable control IDs, no modal dialogs, results
-  reported as text with language-independent `OK:` / `ERROR:` prefixes. Works
-  out of the box with `pywinauto`.
-- **x86 and x64 builds** — match the architecture of the generator DLL.
-- **Safe writes** — atomic replace, previous license kept as `.previous`.
-
-| Spanish interface | Detected problems |
-|---|---|
-| ![Spanish](docs/screenshot-es.png) | ![States](docs/screenshot-states.png) |
-
-## Usage
-
-1. Download the build matching your generator DLL's architecture (usually x86)
-   from the [releases](https://github.com/FerS00/WLQuickGen/releases) and copy it
-   into the product folder, e.g. `...\Specific Generators\MyProduct\`.
-2. Run it once — it creates `WLQuickGen.ini` next to itself.
-3. Set the license file name in that ini (see below).
-4. Paste the HWID, choose the expiration, press **Generate** (or Enter).
-5. **Show file** opens Explorer with the new license selected.
-
-The tool searches for the SDK in its own folder, in `DLL\` and `EXE\`, in the
-parent folder, and one level of product subfolders — so it works whether you put
-it in the product root or in `Specific Generators\` next to several products.
-
-A step-by-step guide in Spanish is in [docs/MANUAL_USUARIO.md](docs/MANUAL_USUARIO.md).
-
-## How it works
+### Key Engineering Decisions / Architecture
+- **SDK discovery and PE check:** probes its own folder, `DLL\`, `EXE\`, the parent folder and one level of product subfolders for `CustomWinlicenseSDK.dll` (hash embedded) or `WinLicenseSDK.dll` (requires `LicenseHash`). It reads the PE `Machine` field and flags a 32/64-bit mismatch before any `LoadLibrary` attempt, naming the build to use.
+- **ANSI exports on purpose:** calls `WLCustomGenLicenseFileKeyEx` / `WLGenLicenseFileKeyEx`. The `…ExW` variants embed the name as UTF-16 and yield a file the protected product rejects as corrupt.
+- **`NULL` vs empty string:** empty `Name` / `Organization` / `CustomData` in the ini are passed as `NULL` ("not set"), which the SDK treats differently from `""`.
+- **Atomic writes:** output goes to `.tmp`, then `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`; the previous license is copied to `.previous`. Returned size `≤ 0` is reported as an error, never written.
+- **Automation contract:** no modal dialogs; fixed control IDs (`1002` HWID, `1011` Generate, `1012` Status…); status lines start with language-independent `OK:` / `ERROR:` prefixes.
+- **Zero-dependency binary:** static CRT (`/MT`), Common Controls 6 + DPI-aware manifest, double-buffered GDI painting (`CreateCompatibleDC`), dark title bar on Windows 10/11; EN/ES/PT resolved from the Windows display language and switchable at runtime.
+- **Secret hygiene:** generator DLLs, seeds (`*.gns`, `*.abs`), `WLQuickGen.ini` (may hold `LicenseHash`) and generated licenses are blocked by `.gitignore` — publishing them would allow anyone to mint licenses.
 
 ```mermaid
 flowchart LR
     START[Start] --> DETECT[Probe folders for<br/>CustomWinlicenseSDK.dll<br/>or WinLicenseSDK.dll]
     DETECT --> ARCH{PE machine<br/>matches exe?}
-    ARCH -->|no| WARN[Amber badge<br/>+ warning]
+    ARCH -->|no| WARN[Amber badge + warning]
     ARCH -->|yes| INI[Load WLQuickGen.ini]
     WARN --> INI
-    INI --> UI[Window: HWID + expiration]
+    INI --> UI[HWID + expiration]
     UI -->|Generate / Enter| VALID[Validate HWID, date,<br/>file name, hash]
     VALID -->|error| ERR[ERROR: message]
     VALID --> CALL[LoadLibrary +<br/>WL…GenLicenseFileKeyEx ANSI]
@@ -78,13 +43,30 @@ flowchart LR
     WRITE --> OK[OK: file written]
 ```
 
-More diagrams (SDK search order, status states, language resolution) are in
-[docs/GRAFO_LOGICA.md](docs/GRAFO_LOGICA.md).
+---
 
-## Configuration (`WLQuickGen.ini`)
+### Tech Stack
+| Layer | Technologies |
+| :--- | :--- |
+| **Application** | `C++17` · `Win32 API` · `GDI` · `Common Controls 6` · `Shell API` |
+| **Build** | `CMake` · `MSVC` (`build.bat`, `/MT /utf-8 /W4`) · `MinGW` cross-compile |
+| **CI / release** | `GitHub Actions` (`windows-2022`, x86/x64 matrix, PE architecture check, zipped artifacts + SHA-256) |
+| **Automation example** | `Python` · `pywinauto` |
+| **External (not included)** | WinLicense generator SDK by Oreans — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
-Everything that does not change per license lives here, which keeps the window
-minimal:
+---
+
+### Quickstart
+Requirements: Visual Studio C++ toolset (x86 + x64) and Windows SDK, or CMake.
+
+```powershell
+build.bat                                               # -> WLQuickGen-x86.exe, WLQuickGen-x64.exe
+
+cmake -S . -B build-x64 -A x64   ; cmake --build build-x64 --config Release
+cmake -S . -B build-x86 -A Win32 ; cmake --build build-x86 --config Release
+```
+
+Usage: copy the build matching the generator DLL (usually x86) into `...\Specific Generators\MyProduct\`, run it once to create `WLQuickGen.ini`, set `LicenseFileName`, paste the HWID and press **Generate**.
 
 ```ini
 [WLQuickGen]
@@ -97,167 +79,19 @@ LicenseHash=
 Language=auto
 ```
 
-| Key | Meaning |
-|---|---|
-| `LicenseFileName` | Name of the generated file. Products differ — set it once per folder. |
-| `NameIsHwid` | `1` uses the HWID as the registration name (what the stock generator does). `0` uses `Name`. |
-| `Name` / `Organization` / `CustomData` | Optional license fields. Empty means "not set" (`NULL`), which is not the same as an empty string to the SDK. |
-| `LicenseHash` | Required **only** for the standard SDK (`WinLicenseSDK.dll`). The custom DLL embeds it. |
-| `Language` | `auto` (Windows display language, English fallback), `en`, `es` or `pt`. The language button writes it. |
+Scope: FileKey licenses only (TextKey, Registry, SmartKey and Dynamic SmartKey are out of scope). Licenses are non-deterministic — compare sizes, not bytes. Binaries are not Authenticode-signed. Releases are published by pushing a `v*` tag.
 
-## Automation with pywinauto
+Configuration reference, `pywinauto` example and control table: [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) · Build details: [docs/COMPILACION.md](docs/COMPILACION.md) · Diagrams: [docs/GRAFO_LOGICA.md](docs/GRAFO_LOGICA.md) · [CHANGELOG.md](CHANGELOG.md)
 
-No modal dialogs are ever shown; the status line reports the outcome and starts
-with `OK:` or `ERROR:`. Those prefixes stay the same in every language — only
-the text after them is translated, so match on the prefix.
+---
 
-| Control | `control_id` | Class |
-|---|---|---|
-| HWID | 1002 | Edit |
-| No expiry | 1006 | Button (checkbox) |
-| Day / Month / Year | 1007 / 1008 / 1009 | Edit |
-| Generate | 1011 | Button |
-| Status | 1012 | Static |
-| Show file | 1013 | Button |
-| Language | 1015 | Button |
+### License
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE) — not an OSI-approved open source license.
 
-Window class `WLQuickGenWindow`, title `WLQuickGen`.
+> Source code is available under the PolyForm Noncommercial License 1.0.0. Commercial use requires a separate license from the copyright holder.
 
-```python
-from pywinauto.application import Application
-import time
-
-app = Application(backend="win32").start(r"...\MyProduct\WLQuickGen-x86.exe")
-dlg = app.window(class_name="WLQuickGenWindow")
-dlg.wait("ready", timeout=10)
-
-dlg.child_window(control_id=1002, class_name="Edit").set_edit_text(hwid)
-dlg.child_window(control_id=1011, class_name="Button").click()
-time.sleep(1)
-
-status = dlg.child_window(control_id=1012, class_name="Static").window_text()
-assert status.startswith("OK:"), status
-dlg.close()
-```
-
-A ready-to-run version is in [`examples/automate.py`](examples/automate.py).
-
-> Use 32-bit Python to drive the x86 build; pywinauto warns otherwise (it still
-> works for these controls, but matching bitness is more reliable).
-
-## Building
-
-Details in Spanish: [docs/COMPILACION.md](docs/COMPILACION.md).
-
-**Visual Studio (`build.bat`)** — requires the C++ toolset (x86 and x64) and the
-Windows SDK (`rc.exe`):
-
-```
-build.bat
-```
-
-Produces `WLQuickGen-x86.exe` and `WLQuickGen-x64.exe`. If Visual Studio is not
-in the default location, edit `VCVARS` at the top of `build.bat`.
-
-**CMake**:
-
-```
-cmake -S . -B build-x64 -A x64   && cmake --build build-x64 --config Release
-cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-```
-
-Binaries land in `build-*/bin/Release/`.
-
-## Releases
-
-[`.github/workflows/release.yml`](.github/workflows/release.yml) builds x86 and
-x64 on every push and pull request. Pushing a `v*` tag (or running the workflow
-manually with *release* ticked) publishes a GitHub release with
-`WLQuickGen-<version>-windows-<arch>.zip`, its SHA-256, and the matching section
-of [CHANGELOG.md](CHANGELOG.md) as notes.
-
-To cut a release: bump the version in `CMakeLists.txt`, `src/theme.h` and
-`WLQuickGen.rc`, add a `## [x.y.z]` section to the changelog, then tag.
-
-## ⚠️ Do not commit WinLicense material
-
-This repository contains **only** the generator's own source. The `.gitignore`
-blocks the files that carry your product's generation secrets:
-
-- `CustomWinlicenseSDK.dll`, `WinLicenseSDK.dll`, `ECCfunctions.dll`
-- `GeneratorSeed.gns`, `GeneratorDatabase.abs`
-- `WLQuickGen.ini` (may contain `LicenseHash`)
-- generated `.dat` / `.txt` / `.reg` license files
-
-Publishing any of those would let anyone generate licenses for your product.
-Check `git status` before your first push.
-
-## Notes and limits
-
-- The executable's architecture **must** match the generator DLL's. A 32-bit
-  process cannot load a 64-bit DLL. The tool detects this at startup (amber
-  badge) and names the build to use.
-- Supported family: **FileKey** (license file). TextKey, Registry, SmartKey and
-  Dynamic SmartKey are out of scope.
-- The tool calls the **ANSI** SDK exports (`WLCustomGenLicenseFileKeyEx` /
-  `WLGenLicenseFileKeyEx`). The Unicode variants embed the name as UTF-16 and
-  produce a file the protected product rejects as a corrupt license.
-- Licenses are not deterministic: generating twice with identical input yields
-  different bytes. Compare sizes, not bytes.
-- Binaries are not Authenticode-signed.
-
-## Technologies
-
-- C++17, Win32 API (no MFC/ATL), GDI for the custom-drawn UI.
-- Windows resources (`.rc`, manifest with Common Controls 6 and DPI awareness).
-- CMake and `build.bat` (MSVC); MinGW cross-compilation described in
-  [docs/COMPILACION.md](docs/COMPILACION.md).
-- GitHub Actions (`windows-2022`) for x86/x64 builds and releases.
-- Python + pywinauto only for the optional automation example.
-
-## Project structure
-
-```text
-src/                 Application source (SDK detection, ini, generation, UI, i18n)
-docs/                Build guide, user manual, logic diagrams and screenshots
-examples/            pywinauto automation example
-.github/workflows/   Build and release pipeline
-WLQuickGen.rc        Icon, manifest and version resource
-CMakeLists.txt       CMake build
-build.bat            Direct MSVC build for x86 and x64
-```
-
-## Status
-
-- **Implemented:** FileKey generation through the custom and standard SDK exports,
-  SDK auto-detection, architecture check, EN/ES/PT UI, atomic writes, automation
-  control IDs, CI build and release workflow.
-- **Tested:** x86/x64 builds and PE architecture check run in CI. License
-  generation requires a real WinLicense generator DLL and is verified manually;
-  there are no automated tests in this repository.
-- **Out of scope:** TextKey, Registry, SmartKey and Dynamic SmartKey licenses.
-
-## Third-party software
-
-WLQuickGen does **not** include the WinLicense SDK or any Oreans binary. It loads
-the generator DLL that already exists in the user's WinLicense installation and
-declares the SDK function signatures and `sLicenseFeatures` structure needed to
-call it. WinLicense is a product and trademark of Oreans Technologies. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## License
-
-Source code is **source-available** under the
-[PolyForm Noncommercial License 1.0.0](LICENSE). This is not an OSI-approved
-open source license.
-
-> Source code is available under the PolyForm Noncommercial License 1.0.0.
-> Commercial use requires a separate license from the copyright holder.
-
-See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for commercial use.
+Commercial use: [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). WinLicense is a product of Oreans Technologies and is not distributed here.
 
 Required Notice: Copyright (c) 2026 FerS00 (https://github.com/FerS00)
 
-## Author
-
-[FerS00](https://github.com/FerS00)
+**Author:** [FerS00](https://github.com/FerS00)
