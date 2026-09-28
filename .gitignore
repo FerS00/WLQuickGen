@@ -34,3 +34,14 @@ desktop.ini
 # CMake / packaging
 build/
 dist/
+
+# Signing material and local secrets
+*.pfx
+*.p12
+*.key
+*.pem
+.env
+.env.*
+secrets/
+.secrets/
+*.log
