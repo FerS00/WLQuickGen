@@ -12,6 +12,7 @@ WLQuickGen.ini
 *.dat.previous
 *.reg
 *.txt
+!CMakeLists.txt
 !requirements.txt
 
 # Build output
@@ -29,3 +30,7 @@ build-*.obj
 *.user
 Thumbs.db
 desktop.ini
+
+# CMake / packaging
+build/
+dist/

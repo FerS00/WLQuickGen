@@ -1,6 +1,7 @@
 @echo off
 REM Builds WLQuickGen for x86 and x64 with MSVC.
 REM Output: WLQuickGen-x86.exe and WLQuickGen-x64.exe
+REM (CMake users: see "Building" in README.md.)
 setlocal
 set "VCVARS=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvarsall.bat"
 if not exist "%VCVARS%" (
@@ -10,26 +11,23 @@ if not exist "%VCVARS%" (
 )
 
 cd /d "%~dp0"
+set "SOURCES=src\WLQuickGen.cpp src\i18n.cpp src\theme.cpp"
+set "CFLAGS=/nologo /std:c++17 /EHsc /O2 /W4 /permissive- /utf-8 /MT /DUNICODE /D_UNICODE /I."
+set "LIBS=user32.lib gdi32.lib kernel32.lib comctl32.lib shell32.lib"
 
-echo === Building x86 ===
-call "%VCVARS%" x86 >nul
-rc /nologo /fo WLQuickGen-x86.res WLQuickGen.rc
-if errorlevel 1 (echo Resource compilation failed & exit /b 1)
-cl /nologo /std:c++17 /EHsc /O2 /W3 /DUNICODE /D_UNICODE WLQuickGen.cpp WLQuickGen-x86.res ^
-   /Fe:WLQuickGen-x86.exe /Fo:build-x86.obj ^
-   /link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib kernel32.lib
-if errorlevel 1 (echo x86 build failed & exit /b 1)
+for %%A in (x86 x64) do (
+    echo === Building %%A ===
+    call "%VCVARS%" %%A >nul
+    rc /nologo /fo WLQuickGen-%%A.res WLQuickGen.rc
+    if errorlevel 1 (echo Resource compilation failed & exit /b 1)
+    if not exist build-%%A mkdir build-%%A
+    cl %CFLAGS% %SOURCES% WLQuickGen-%%A.res /Fe:WLQuickGen-%%A.exe /Fo:build-%%A\ ^
+       /link /SUBSYSTEM:WINDOWS /MANIFEST:NO %LIBS%
+    if errorlevel 1 (echo %%A build failed & exit /b 1)
+)
 
-echo === Building x64 ===
-call "%VCVARS%" x64 >nul
-rc /nologo /fo WLQuickGen-x64.res WLQuickGen.rc
-if errorlevel 1 (echo Resource compilation failed & exit /b 1)
-cl /nologo /std:c++17 /EHsc /O2 /W3 /DUNICODE /D_UNICODE WLQuickGen.cpp WLQuickGen-x64.res ^
-   /Fe:WLQuickGen-x64.exe /Fo:build-x64.obj ^
-   /link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib kernel32.lib
-if errorlevel 1 (echo x64 build failed & exit /b 1)
-
-del /q build-x86.obj build-x64.obj WLQuickGen-x86.res WLQuickGen-x64.res 2>nul
+rmdir /s /q build-x86 build-x64 2>nul
+del /q WLQuickGen-x86.res WLQuickGen-x64.res 2>nul
 echo.
 echo === Done: WLQuickGen-x86.exe and WLQuickGen-x64.exe ===
 endlocal
